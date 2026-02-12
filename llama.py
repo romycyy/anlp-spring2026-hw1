@@ -210,22 +210,25 @@ class LlamaLayer(nn.Module):
         self.ffn_norm = LayerNorm(config.dim, eps=config.layer_norm_eps)
 
     def forward(self, x):
-        """
-        This is the forward pass of the basic transformer building block. This is a
-        modernized version of the block shown on the left of Figure 1 on
-        https://arxiv.org/pdf/1706.03762.pdf.
+        # 1) layer normalization of the input (RMSNorm)
+        h = self.attention_norm(x)
 
-        The transformer block should consist of:
-        1) layer normalization of the input (via Root Mean Square layer normalization)
-        2) self-attention on the layer-normalized input
-        3) a residual connection (i.e., add the input to the output of the self-attention)
-        3) layer normalization on the output of the self-attention
-        4) a feed-forward network on the layer-normalized output of the self-attention
-        5) add a residual connection from the unnormalized self-attention output to the
-           output of the feed-forward network
-        """
-        # todo
-        raise NotImplementedError
+        # 2) self-attention on the layer-normalized input
+        h = self.attention(h)
+
+        # 3) residual connection (add input to attention output)
+        h = x + h
+
+        # 4) layer normalization on the output of the self-attention
+        h_norm = self.ffn_norm(h)
+
+        # 5) feed-forward network on the layer-normalized output
+        ffn_out = self.feed_forward(h_norm)
+
+        # 6) residual connection from (unnormalized) attention output to FFN output
+        out = h + ffn_out
+
+        return out
 
 
 class Llama(LlamaPreTrainedModel):
@@ -318,21 +321,39 @@ class Llama(LlamaPreTrainedModel):
                 # select the single most likely index
                 idx_next = torch.argmax(logits, dim=-1, keepdim=True)
             else:
-                """
-                Perform temperature sampling with top-p sampling:
-                1) Scale the logits with the temperature followed by normalization using Softmax.
-                2) Sort tokens by descending probability.
-                3) Compute the cumulative probability distribution.
-                4) Select the smallest set of tokens whose cumulative probability is >= p.
-                5) Mask out all tokens outside this nucleus.
-                6) Renormalize the remaining probabilities so they sum to 1.
-                7) Sample from this filtered probability distribution.
-                """
-                # todo
+                # 1) Scale the logits with the temperature
+                logits = logits / temperature
+                
+                # Convert to probabilities
+                probs = torch.softmax(logits, dim=-1)
+                
+                # 2) Sort tokens by descending probability
+                # sorted_indices helps us map back to original vocab indices later
+                sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
+                
+                # 3) Compute the cumulative probability distribution
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
 
-                raise NotImplementedError
-                # map to original vocab indices
-                idx_next = None
+                # 4) Select the smallest set of tokens whose cumulative probability is >= p
+                # We create a mask for tokens to remove (those outside the nucleus)
+                # Shift the mask to include the first token that crosses the threshold
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                # 5) Mask out all tokens outside this nucleus
+                # We set their probability to 0
+                sorted_probs[sorted_indices_to_remove] = 0.0
+                
+                # 6) Renormalize the remaining probabilities
+                sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
+                
+                # 7) Sample from this filtered distribution
+                # multinomial expects weights; it returns indices relative to 'sorted_probs'
+                next_token_sorted_idx = torch.multinomial(sorted_probs, num_samples=1)
+                
+                # Map back to original vocab indices
+                idx_next = torch.gather(sorted_indices, -1, next_token_sorted_idx)
 
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
