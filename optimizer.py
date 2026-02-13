@@ -26,7 +26,7 @@ class AdamW(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, correct_bias=correct_bias, max_grad_norm=max_grad_norm)
         super().__init__(params, defaults)
 
-def step(self, closure: Callable = None):
+    def step(self, closure: Callable = None):
         loss = None
         if closure is not None:
             loss = closure()
@@ -35,7 +35,7 @@ def step(self, closure: Callable = None):
             # --- Gradient Clipping ---
             if group['max_grad_norm'] is not None:
                 torch.nn.utils.clip_grad_norm_(group['params'], group['max_grad_norm'])
-            
+
             for p in group["params"]:
                 if p.grad is None:
                     continue
