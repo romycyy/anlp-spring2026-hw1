@@ -67,7 +67,8 @@ def train_one_epoch(model, loader, optimizer, device):
     model.train()
     total_loss = 0.0
     n_batches = 0
-    for batch in loader:
+    pbar = tqdm(loader, desc="Training", unit="batch")
+    for batch in pbar:
         x, y = batch[0].to(device), batch[1].to(device)
         optimizer.zero_grad()
         logits, _ = model(x, targets=y)
@@ -85,6 +86,7 @@ def train_one_epoch(model, loader, optimizer, device):
         optimizer.step()
         total_loss += loss.item()
         n_batches += 1
+        pbar.set_postfix(loss=f"{loss.item():.4f}", avg_loss=f"{total_loss / n_batches:.4f}")
     return total_loss / n_batches
 
 
@@ -240,6 +242,7 @@ def model_training(args):
     best_val_loss = float('inf')
 
     for epoch in range(1, training_config["n_epochs"] + 1):
+        print(f"Epoch {epoch}/{training_config['n_epochs']}")
         # Train the model for one epoch
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
         
