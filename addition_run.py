@@ -63,15 +63,29 @@ def train_one_epoch(model, loader, optimizer, device):
     Another Hint: 
         token id for "=" is 12. 
     """
-    # # todo
-    # model.train()
-    # total_loss = 0
-    # n_batches = 0
-    # for ...
-
-    # return total_loss / n_batches
-
-    raise NotImplementedError
+    EQUALS_TOKEN_ID = 12
+    model.train()
+    total_loss = 0.0
+    n_batches = 0
+    for batch in loader:
+        x, y = batch[0].to(device), batch[1].to(device)
+        optimizer.zero_grad()
+        logits, _ = model(x, targets=y)
+        # Only compute loss on positions at and after "=" (answer part)
+        after_equals = (x == EQUALS_TOKEN_ID).cumsum(dim=1) >= 1
+        mask = after_equals & (y != -1)
+        y_masked = y.clone()
+        y_masked[~mask] = -1
+        loss = F.cross_entropy(
+            logits.view(-1, logits.size(-1)),
+            y_masked.view(-1),
+            ignore_index=-1,
+        )
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+        n_batches += 1
+    return total_loss / n_batches
 
 
 @torch.no_grad()
@@ -95,15 +109,25 @@ def evaluate_loss(model, loader, device):
     Another Hint: 
         token id for "=" is 12. 
     """
-    # todo
-    # model.eval()
-    # total_loss = 0
-    # n_batches = 0
-    # for ...
-
-    # return total_loss / n_batches
-
-    raise NotImplementedError
+    EQUALS_TOKEN_ID = 12
+    model.eval()
+    total_loss = 0.0
+    n_batches = 0
+    for batch in loader:
+        x, y = batch[0].to(device), batch[1].to(device)
+        logits, _ = model(x, targets=y)
+        after_equals = (x == EQUALS_TOKEN_ID).cumsum(dim=1) >= 1
+        mask = after_equals & (y != -1)
+        y_masked = y.clone()
+        y_masked[~mask] = -1
+        loss = F.cross_entropy(
+            logits.view(-1, logits.size(-1)),
+            y_masked.view(-1),
+            ignore_index=-1,
+        )
+        total_loss += loss.item()
+        n_batches += 1
+    return total_loss / n_batches
 
 
 
