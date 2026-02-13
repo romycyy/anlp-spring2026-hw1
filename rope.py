@@ -72,8 +72,9 @@ def apply_rotary_emb(
     t = torch.arange(seqlen, device=device)
     # freqs: shape: (seqlen, head_dim // 2)
     freqs = torch.outer(t, thetas).float()
-    freqs_sin = torch.sin(freqs).view(1, 1, seqlen, -1)
-    freqs_cos = torch.cos(freqs).view(1, 1, seqlen, -1)
+    # Shape (1, seqlen, 1, head_dim//2) so broadcasting aligns with query/key (batch, seqlen, n_heads, head_dim//2)
+    freqs_sin = torch.sin(freqs).view(1, seqlen, 1, -1)
+    freqs_cos = torch.cos(freqs).view(1, seqlen, 1, -1)
 
     # Then, combine these trigonometric values with the tensors query_real, query_imag,
     # key_real, and key_imag.
