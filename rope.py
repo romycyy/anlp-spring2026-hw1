@@ -83,6 +83,6 @@ def apply_rotary_emb(
     key_out_real = key_real * freqs_cos - key_imag * freqs_sin
     key_out_imag = key_real * freqs_sin + key_imag * freqs_cos
     # Return the rotary position embeddings for the query and key tensors
-    query_out = torch.stack([query_out_real, query_out_imag], dim=-1).flatten(dim=-2)
-    key_out = torch.stack([key_out_real, key_out_imag], dim=-1).flatten(dim=-2)
+    query_out = torch.stack([query_out_real, query_out_imag], dim=-1).flatten(start_dim=-2)
+    key_out = torch.stack([key_out_real, key_out_imag], dim=-1).flatten(start_dim=-2)
     return query_out.type_as(query), key_out.type_as(key)
