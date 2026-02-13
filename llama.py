@@ -117,7 +117,7 @@ class Attention(nn.Module):
         jointly using matrix/tensor operations.
         """
         # todo
-        prod = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(self.head_dim)
+        prod = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(self.head_dim)
         # apply causal mask.
         if self.causal:
             seqlen = query.size(2)
